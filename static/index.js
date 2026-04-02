@@ -1,11 +1,45 @@
+function createBars(containerId, weights, titleText) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "bar-title";
+  title.innerText = titleText;
+  container.appendChild(title);
+
+  if (!weights || Object.keys(weights).length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "bar-empty";
+    empty.innerText = "No important words found";
+    container.appendChild(empty);
+    return;
+  }
+
+  Object.entries(weights).forEach(([word, value]) => {
+    const barItem = document.createElement("div");
+    barItem.className = "bar-item";
+
+    const label = document.createElement("div");
+    label.className = "bar-label";
+    label.innerText = `${word} (${value.toFixed(2)})`;
+
+    const barBg = document.createElement("div");
+    barBg.className = "bar-bg";
+
+    const bar = document.createElement("div");
+    bar.className = "bar-fill";
+    bar.style.width = Math.min(value * 100, 100) + "%";
+
+    barBg.appendChild(bar);
+    barItem.appendChild(label);
+    barItem.appendChild(barBg);
+    container.appendChild(barItem);
+  });
+}
+
+
 async function runDetection() {
-  const text = document.getElementById("tweetInput")
-  .addEventListener("keydown", function(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      runDetection();
-    }
-});
+  const text = document.getElementById("tweetInput").value.trim();
 
   if (!text) {
     alert("Please enter a tweet");
@@ -27,7 +61,7 @@ async function runDetection() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ text: text }) // ✅ FIXED
+      body: JSON.stringify({ text: text })
     });
 
     if (!res.ok) {
@@ -39,7 +73,7 @@ async function runDetection() {
   } catch (err) {
     alert("Server is waking up or error occurred. Please try again.");
     console.error(err);
-    return; // ✅ prevent further execution
+    return;
   }
 
   // Final result
@@ -49,7 +83,7 @@ async function runDetection() {
   document.getElementById("decisionReason").innerText =
     "Decision logic: " + data.decision_reason;
 
-  // SVM (only if exists)
+  // SVM
   if (data.svm) {
     createBars(
       "svmResult",
@@ -57,10 +91,10 @@ async function runDetection() {
       `Prediction: ${data.svm.pred} (${data.svm.confidence})`
     );
   } else {
-    document.getElementById("svmResult").innerHTML = "Not used (short text)";
+    document.getElementById("svmResult").innerHTML = "Not used";
   }
 
-  // LightGBM (only if exists)
+  // LightGBM
   if (data.lightgbm) {
     createBars(
       "lgbmResult",
@@ -68,7 +102,7 @@ async function runDetection() {
       `Prediction: ${data.lightgbm.pred} (${data.lightgbm.confidence})`
     );
   } else {
-    document.getElementById("lgbmResult").innerHTML = "Not used (short text)";
+    document.getElementById("lgbmResult").innerHTML = "Not used";
   }
 
   // Keywords
@@ -86,3 +120,18 @@ async function runDetection() {
     kwBox.innerText = "No keywords found";
   }
 }
+
+
+// 🔥 Enter key support (OUTSIDE function)
+document.addEventListener("DOMContentLoaded", () => {
+  const textarea = document.getElementById("tweetInput");
+
+  if (textarea) {
+    textarea.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        runDetection();
+      }
+    });
+  }
+});
