@@ -153,6 +153,8 @@ def predict():
         "bert": None,  # kept for frontend compatibility
         "keywords": extract_keywords(processed_text, svm_vectorizer)
     })
+    print("SVM:", svm_pred, svm_conf)
+    print("LGBM:", lgbm_pred, lgbm_conf)
 
 
 # ---------------- STARTUP ---------------- #
