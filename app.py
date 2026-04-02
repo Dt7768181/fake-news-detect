@@ -92,11 +92,17 @@ def get_lgbm_weights(X_df, vectorizer, top_n=6):
 # ---------------- ENSEMBLE ---------------- #
 
 def ensemble_classical(svm_p, svm_c, lgbm_p, lgbm_c):
-    # Agreement → trust it
+
+    # 🔥 Bias correction: both say fake but not super confident
+    if svm_p == 1 and lgbm_p == 1:
+        if svm_c < 0.6 and lgbm_c < 0.95:
+            return 0, "Low confidence override (likely real)"
+
+    # Agreement → trust
     if svm_p == lgbm_p:
         return svm_p, "Agreement"
 
-    # Prefer SVM (more stable in your case)
+    # Prefer SVM (more stable)
     return svm_p, "SVM preferred (more stable)"
 
 # ---------------- ROUTES ---------------- #
