@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fake News Detection System</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="/static/index.js" defer></script>
+</head>
+<body>
+  <div class="dashboard">
+
+    <div class="left-panel">
+      <h2>Fake News Detection System</h2>
+
+      <div class="input-section">
+        <textarea
+          id="tweetInput"
+          placeholder="Paste the tweet or news for detailed analysis..."
+          rows="5"
+        ></textarea>
+        <button onclick="runDetection()">Run Fake Tweet Detection</button>
+      </div>
+
+
+      <div class="metrics">
+        
+        <h3>SVM Analysis</h3>
+        <div class="chart-placeholder" id="svmResult">
+          Waiting for input...
+        </div>
+      </div>
+
+
+      <div class="runtime">
+        <h3>LightGBM Analysis</h3>
+        <div class="chart-placeholder" id="lgbmResult">
+          Waiting for input...
+        </div>
+      </div>
+    </div>
+
+
+    <div class="middle-panel">
+      <h3>Keyword Analysis</h3>
+      <div class="keyword-box" id="keywords">
+        <p>Keywords will appear here</p>
+      </div>
+    </div>
+
+
+    <div class="right-panel">
+      <div class="core-result">
+        <h3>Core Result</h3>
+        <div class="result-box">
+          <p class="classified" id="finalResult">
+            WAITING FOR ANALYSIS
+          </p>
+          <p id="decisionReason"></p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+ 
+</body>
+</html>
