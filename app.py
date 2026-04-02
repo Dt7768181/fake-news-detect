@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import re, emoji, joblib
 import numpy as np
+import pandas as pd
 import os
 
 app = Flask(__name__, static_folder="static")
@@ -61,9 +62,9 @@ def extract_keywords(text, vectorizer, top_n=6):
     return keywords
 
 
-def get_tfidf_weights(X, vectorizer, top_n=6):
+def get_tfidf_weights(X_df, vectorizer, top_n=6):
+    scores = X_df.values[0]
     feature_names = vectorizer.get_feature_names_out()
-    scores = X.toarray()[0]
     idx = np.argsort(scores)[-top_n:]
 
     return {
@@ -72,8 +73,8 @@ def get_tfidf_weights(X, vectorizer, top_n=6):
     }
 
 
-def get_lgbm_weights(X, vectorizer, top_n=6):
-    tfidf_scores = X.toarray()[0]
+def get_lgbm_weights(X_df, vectorizer, top_n=6):
+    tfidf_scores = X_df.values[0]
     importances = lgbm_model.feature_importances_
     combined = tfidf_scores * importances
 
@@ -91,13 +92,12 @@ def get_lgbm_weights(X, vectorizer, top_n=6):
 # ---------------- ENSEMBLE ---------------- #
 
 def ensemble_classical(svm_p, svm_c, lgbm_p, lgbm_c):
+    # Agreement → trust it
     if svm_p == lgbm_p:
-        return svm_p, "SVM + LightGBM agreement"
+        return svm_p, "Agreement"
 
-    return (
-        svm_p if svm_c >= lgbm_c else lgbm_p,
-        "Confidence-based (classical models)"
-    )
+    # Prefer SVM (more stable in your case)
+    return svm_p, "SVM preferred (more stable)"
 
 # ---------------- ROUTES ---------------- #
 
@@ -116,18 +116,37 @@ def predict():
 
     processed_text = preprocess(raw_text)
 
-    # Vectorize separately
-    X_svm = svm_vectorizer.transform([processed_text])
-    X_lgbm = lgbm_vectorizer.transform([processed_text])
+    # ---------------- VECTORIZE ---------------- #
 
-    # SVM
-    svm_pred = int(svm_model.predict(X_svm)[0])
-    svm_score = svm_model.decision_function(X_svm)[0]
+    X_svm = svm_vectorizer.transform([processed_text])
+    X_svm_df = pd.DataFrame(
+        X_svm.toarray(),
+        columns=svm_vectorizer.get_feature_names_out()
+    )
+
+    X_lgbm = lgbm_vectorizer.transform([processed_text])
+    X_lgbm_df = pd.DataFrame(
+        X_lgbm.toarray(),
+        columns=lgbm_vectorizer.get_feature_names_out()
+    )
+
+    # ---------------- SVM ---------------- #
+
+    svm_pred = int(svm_model.predict(X_svm_df)[0])
+    svm_score = svm_model.decision_function(X_svm_df)[0]
     svm_conf = float(1 / (1 + np.exp(-abs(svm_score))))
 
-    # LightGBM
-    lgbm_pred = int(lgbm_model.predict(X_lgbm)[0])
-    lgbm_conf = float(np.max(lgbm_model.predict_proba(X_lgbm)))
+    # ---------------- LGBM ---------------- #
+
+    lgbm_pred = int(lgbm_model.predict(X_lgbm_df)[0])
+    lgbm_conf = float(np.max(lgbm_model.predict_proba(X_lgbm_df)))
+
+    # ---------------- DEBUG ---------------- #
+
+    print("SVM:", svm_pred, svm_conf)
+    print("LGBM:", lgbm_pred, lgbm_conf)
+
+    # ---------------- FINAL DECISION ---------------- #
 
     final_pred, reason = ensemble_classical(
         svm_pred, svm_conf,
@@ -141,20 +160,18 @@ def predict():
         "svm": {
             "pred": LABEL_MAP[svm_pred],
             "confidence": round(svm_conf, 3),
-            "weights": get_tfidf_weights(X_svm, svm_vectorizer)
+            "weights": get_tfidf_weights(X_svm_df, svm_vectorizer)
         },
 
         "lightgbm": {
             "pred": LABEL_MAP[lgbm_pred],
             "confidence": round(lgbm_conf, 3),
-            "weights": get_lgbm_weights(X_lgbm, lgbm_vectorizer)
+            "weights": get_lgbm_weights(X_lgbm_df, lgbm_vectorizer)
         },
 
-        "bert": None,  # kept for frontend compatibility
+        "bert": None,
         "keywords": extract_keywords(processed_text, svm_vectorizer)
     })
-    print("SVM:", svm_pred, svm_conf)
-    print("LGBM:", lgbm_pred, lgbm_conf)
 
 
 # ---------------- STARTUP ---------------- #
